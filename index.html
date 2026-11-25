@@ -1339,12 +1339,14 @@ try{
     if(typeof sv.vol==="number"&&sv.vol>=0&&sv.vol<=1) DJ.vol=sv.vol;
     if([10,30,60,120].indexOf(sv.mins)>=0) DJ.mins=sv.mins;
     TWK.forEach(function(id){ var v=sv.tw&&sv.tw[id]; if(typeof v==="number"&&v>=-.4&&v<=.4) DJ.tw[id]=v; });
+    /* the lead's default level was lowered to where the old knob sat at -25, so an old -25 setting becomes the new 0 */
+    if(!sv.lv2) DJ.tw.leadVol=Math.max(-.4,Math.min(.4,(DJ.tw.leadVol||0)+.3125));
   }
 }catch(e){}
 var saveT=0;
 function saveCfg(){
   clearTimeout(saveT);
-  saveT=setTimeout(function(){ try{ localStorage.setItem(STORE,JSON.stringify({disp:DJ.disp,genre:DJ.genre,genres:DJ.genres,order:DJ.order,tempo:DJ.tempo,tvar:DJ.tvar,bpm:DJ.bpmS,len:DJ.len,blend:DJ.blend,wave:DJ.wave,chords:DJ.chords,lead:DJ.lead,leadAmt:DJ.leadAmt,keyMode:DJ.keyMode,vol:DJ.vol,mins:DJ.mins,tw:DJ.tw,m:DJ.m})); }catch(e){} },300);
+  saveT=setTimeout(function(){ try{ localStorage.setItem(STORE,JSON.stringify({lv2:true,disp:DJ.disp,genre:DJ.genre,genres:DJ.genres,order:DJ.order,tempo:DJ.tempo,tvar:DJ.tvar,bpm:DJ.bpmS,len:DJ.len,blend:DJ.blend,wave:DJ.wave,chords:DJ.chords,lead:DJ.lead,leadAmt:DJ.leadAmt,keyMode:DJ.keyMode,vol:DJ.vol,mins:DJ.mins,tw:DJ.tw,m:DJ.m})); }catch(e){} },300);
 }
 /* ---------- which genre and tempo each track gets ---------- */
 function setGenres(c){ var a=(c.genres||[]).filter(function(g){ return GENRES.hasOwnProperty(g); }); return a.length?a:[c.genre||"house"]; }
@@ -2498,6 +2500,8 @@ function genSong(cfg){
     if(cfg.genre!=="chip") g.syn.lead=pickNew("lead",LEAD_BY[cfg.genre]||LEAD_BY.house);
     var st=songState(g); st.name=trackName(g.style); st.kit=djKit(g.style);
     st.leadBase=g.style==="chip"?72:60;
+    /* lead level: the knob's 0 now sits where -25 used to (about 13 dB quieter), which suits the mix better */
+    st.k.leadVol=Math.max(.05,st.k.leadVol-.3125);
     st.scDepth=Math.max(.15,Math.min(.7,(SC_DEPTH[g.style]||.35)*(.85+Math.random()*.3)));
     if(g.style==="dubstep"){ st.wdepth=2000+Math.random()*1600; st.wshape=pick(["sine","sine","triangle","square"]); st.wplan={}; } st.chr={}; st.lvs={}; st.vibe=g.vibe;
     st.leadSec=leadSections(djTemplate()); st.leadRoll=Math.random(); st.tpl=djTemplate();
