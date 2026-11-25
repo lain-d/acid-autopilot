@@ -392,6 +392,8 @@ input[type=range]::-moz-range-thumb{width:26px;height:20px;border-radius:4px;bor
       <div class="opt"><span class="lbl">Tempo</span><div class="chips" id="oTempo" role="group" aria-label="Tempo of each track"></div></div>
       <div class="opt"><span class="lbl">Tempo variation</span><div class="chips" id="oTvar" role="group" aria-label="Tempo variation"></div></div>
       <p class="hint" id="tempoTxt"></p>
+      <div class="opt"><span class="lbl">Room reverb</span><div class="chips" id="oEco" role="group" aria-label="Room reverb: one per deck, or one shared reverb for slow devices"></div></div>
+      <p class="hint">Shared uses one reverb for both tracks during a blend, which lightens the load on slow phones. Takes effect from the next track.</p>
     </div>
   </section>
 
@@ -873,9 +875,9 @@ function buildDeckGraph(c){
   /* reverb send: bass after the duck, plus a smaller share of the drums; lows are filtered out so the kick stays tight */
   var rev=ctx.createConvolver(), revHp=ctx.createBiquadFilter(), drRev=ctx.createGain(), revOut=ctx.createGain();
   var revLp=ctx.createBiquadFilter(); revLp.type="lowpass"; revLp.frequency.value=5000; revLp.Q.value=.5;
-  rev.buffer=makeIR(ctx); revHp.type="highpass"; revHp.frequency.value=220; drRev.gain.value=.22; revOut.gain.value=REVG;
+  var shRev=djSharedRoom(); if(!shRev) rev.buffer=makeIR(ctx); revHp.type="highpass"; revHp.frequency.value=220; drRev.gain.value=.22; revOut.gain.value=REVG;
   revSend=ctx.createGain(); revSend.gain.value=S.k.reverb*.9;
-  duck.connect(revSend); drumBus.connect(drRev); drRev.connect(revSend); revSend.connect(revHp); revHp.connect(rev); rev.connect(revLp); revLp.connect(revOut); revOut.connect(duck.__ret);
+  duck.connect(revSend); drumBus.connect(drRev); drRev.connect(revSend); revSend.connect(revHp); if(shRev) revHp.connect(shRev.in); else { revHp.connect(rev); rev.connect(revLp); } revLp.connect(revOut); revOut.connect(duck.__ret);
   var leadRev=ctx.createGain(); leadRev.gain.value=.45; leadFx.connect(leadRev); leadRev.connect(revHp);
   djFx(revHp);
   /* a deck ends in its own high-pass (for the bass swap) and fader, then joins the other deck on the shared bus */
@@ -1312,7 +1314,7 @@ var TWK_BOX={synVol:"kChords",synTone:"kChords",synLen:"kChords",leadVol:"kLead"
 var MST=["drumVol","mLow","mAir","mGlue","mWarm","mWidth","mLoud"];
 var TWK_NAME={cutoff:"Filter",reso:"Reso",env:"Env mod",decay:"Decay",drive:"Drive",delay:"Delay",reverb:"Reverb",synVol:"Level",synTone:"Tone",synLen:"Length",leadVol:"Level",leadTone:"Tone",leadGlide:"Glide",leadFx:"Echo"};
 var SECTION={kick:"intro / outro",full:"groove",fill:"fill",bridge:"bridge","break":"breakdown",build:"build",off:"break"};
-var DJ={disp:"full",genre:"house",genres:["house"],order:"shuffle",tempo:"genre",tvar:0,bpmS:124,glide:2,bpm:124,bpmT:124,len:"med",blend:8,wave:"auto",chords:"auto",lead:"auto",leadAmt:"some",keyMode:"camelot",vol:.7,mins:30,key:.5,
+var DJ={ecoRev:false,disp:"full",genre:"house",genres:["house"],order:"shuffle",tempo:"genre",tvar:0,bpmS:124,glide:2,bpm:124,bpmT:124,len:"med",blend:8,wave:"auto",chords:"auto",lead:"auto",leadAmt:"some",keyMode:"camelot",vol:.7,mins:30,key:.5,
         tw:{},m:{on:true}};
 TWK.forEach(function(id){ DJ.tw[id]=0; });
 MST.forEach(function(id){ DJ.m[id]=DEF[id]; });
@@ -1324,6 +1326,7 @@ try{
     if(Array.isArray(sv.genres)){ var gs=sv.genres.filter(function(g){ return GENRES.hasOwnProperty(g); }); if(gs.length) DJ.genres=gs; }
     if(["shuffle","turn"].indexOf(sv.order)>=0) DJ.order=sv.order;
     if(["full","spec","off"].indexOf(sv.disp)>=0) DJ.disp=sv.disp;
+    DJ.ecoRev=sv.ecoRev===true;
     if(["slider","genre","rise"].indexOf(sv.tempo)>=0) DJ.tempo=sv.tempo; else if(sv.bpm) DJ.tempo="slider";
     if([0,3,6,10].indexOf(sv.tvar)>=0) DJ.tvar=sv.tvar;
     if(sv.bpm>=100&&sv.bpm<=180) DJ.bpm=DJ.bpmT=DJ.bpmS=Math.round(sv.bpm);
@@ -1346,7 +1349,7 @@ try{
 var saveT=0;
 function saveCfg(){
   clearTimeout(saveT);
-  saveT=setTimeout(function(){ try{ localStorage.setItem(STORE,JSON.stringify({lv2:true,disp:DJ.disp,genre:DJ.genre,genres:DJ.genres,order:DJ.order,tempo:DJ.tempo,tvar:DJ.tvar,bpm:DJ.bpmS,len:DJ.len,blend:DJ.blend,wave:DJ.wave,chords:DJ.chords,lead:DJ.lead,leadAmt:DJ.leadAmt,keyMode:DJ.keyMode,vol:DJ.vol,mins:DJ.mins,tw:DJ.tw,m:DJ.m})); }catch(e){} },300);
+  saveT=setTimeout(function(){ try{ localStorage.setItem(STORE,JSON.stringify({lv2:true,ecoRev:DJ.ecoRev,disp:DJ.disp,genre:DJ.genre,genres:DJ.genres,order:DJ.order,tempo:DJ.tempo,tvar:DJ.tvar,bpm:DJ.bpmS,len:DJ.len,blend:DJ.blend,wave:DJ.wave,chords:DJ.chords,lead:DJ.lead,leadAmt:DJ.leadAmt,keyMode:DJ.keyMode,vol:DJ.vol,mins:DJ.mins,tw:DJ.tw,m:DJ.m})); }catch(e){} },300);
 }
 /* ---------- which genre and tempo each track gets ---------- */
 function setGenres(c){ var a=(c.genres||[]).filter(function(g){ return GENRES.hasOwnProperty(g); }); return a.length?a:[c.genre||"house"]; }
@@ -1602,6 +1605,18 @@ function leadFxShared(c,bus){
   X.d2r=c.createGain(); X.d2r.gain.value=.25; X.dOut.connect(X.d2r); X.d2r.connect(X.rIn);
   return X;
 }
+/* slow-device mode: one room reverb on the shared output for both decks, instead of one per deck. During a blend that
+   halves the reverb work; the outgoing track's tails ring on through the shared reverb a little after its fade. */
+function djSharedRoom(){
+  if(!CFG||!CFG.ecoRev||!DECK_OUT) return null;
+  if(DECK_OUT.__room) return DECK_OUT.__room;
+  var c=ctx, R={};
+  R.in=c.createGain(); R.conv=c.createConvolver(); R.conv.buffer=makeIR(c);
+  R.lp=c.createBiquadFilter(); R.lp.type="lowpass"; R.lp.frequency.value=5000; R.lp.Q.value=.5;
+  R.out=c.createGain(); R.out.gain.value=REVG*MIN_G; R.sc=c.createGain();   /* same level as a deck's own reverb, which passes through the deck's master gain */
+  R.in.connect(R.conv); R.conv.connect(R.lp); R.lp.connect(R.out); R.out.connect(R.sc); R.sc.connect(DECK_OUT);
+  return (DECK_OUT.__room=R);
+}
 function fxOf(dk){ var e=dk&&dk.eng; return e&&e[26]&&e[26].__fx; }
 
 /* called from the deck graph once the reverb input exists */
@@ -1745,6 +1760,7 @@ function djSidechain(t){
   var rel=60/S.bpm*.2;
   duckNode(duck.gain,dp,t,rel);
   if(duck.__ret) duckNode(duck.__ret.gain,Math.min(.85,dp*1.15),t,rel*1.2);
+  if(DECK_OUT&&DECK_OUT.__room) duckNode(DECK_OUT.__room.sc.gain,Math.min(.85,dp*1.15),t,rel*1.2);
   var Z=synBus&&synBus.__fx; if(!Z) return;
   if(Z.lDuck) duckNode(Z.lDuck.gain,Math.min(.8,dp*.95),t,rel);
   if(Z.X&&Z.X.sc) duckNode(Z.X.sc.gain,Math.min(.85,dp*1.15),t,rel*1.2);
@@ -2950,6 +2966,7 @@ var paintBpm=function(){ $("bpm").value=Math.round(DJ.bpmT); $("bpmOut").textCon
   });
   paint();
 })();
+chipRow("oEco",[["off","Per deck"],["on","Shared (slow devices)"]],function(){ return DJ.ecoRev?"on":"off"; },function(v){ DJ.ecoRev=v==="on"; saveCfg(); });
 chipRow("oDisp",[["full","Spectrum + wave"],["spec","Spectrum"],["off","Off"]],function(){ return DJ.disp; },function(v){ DJ.disp=v; saveCfg(); if(!running) drawScope(); });
 chipRow("oOrder",[["shuffle","Shuffle"],["turn","Take turns"]],function(){ return DJ.order; },function(v){ DJ.order=v; saveCfg(); });
 chipRow("oTempo",[["genre","Each genre's own"],["slider","BPM slider"],["rise","Rising"]],function(){ return DJ.tempo; },function(v){ DJ.tempo=v; tempoTxt(); saveCfg(); });
