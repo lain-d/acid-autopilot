@@ -2653,7 +2653,8 @@ function bgTimer(){
     BG.worker=w;
   }catch(e){ BG.worker=false; }
 }
-function aheadSec(){ return document.hidden?1.6:.35; }
+/* in the background, timers can be held back for seconds at a time, so the set is written 8 seconds ahead */
+function aheadSec(){ return document.hidden?8:.35; }
 document.addEventListener("visibilitychange",function(){
   bgRoute();
   if(running) tickDJ();
@@ -2662,6 +2663,11 @@ document.addEventListener("visibilitychange",function(){
 function tickDJ(){
   if(!running) return;
   var c=live.ctx;
+  /* if the phone held the page back long enough that the next step is already in the past, move the set's clock
+     forward instead of firing the missed steps all at once (that burst is what threw the tempo around) */
+  if(djClock<c.currentTime+.01){
+    var lag=c.currentTime+.06-djClock; djClock+=lag; setT0+=lag; if(mixInfo) mixInfo.t0+=lag;
+  }
   while(djClock<c.currentTime+aheadSec()){
     stepDJ(djClock);
     djClock+=60/DJ.bpm/4;
