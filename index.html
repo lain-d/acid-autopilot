@@ -2395,9 +2395,50 @@ function perc(t,g){
 }
 
 /* ---------- writing a track ---------- */
-var NAME_A=["Liquid","Neon","Rubber","Static","Velvet","Hollow","Midnight","Chrome","Burnt","Glass","Silver","Feral","Lunar","Molten","Paper","Broken","Electric","Quiet","Wired","Sour"];
-var NAME_B=["Circuit","Tunnel","Signal","Voltage","Ritual","Engine","Mirage","Furnace","Pressure","Machine","Current","Orbit","Static","Reactor","Shadow","Motion","Fever","Pulse","Gravity","Echo"];
-function trackName(){ return pick(NAME_A)+" "+pick(NAME_B); }
+/* track names: several title shapes, a large word stock, words that fit each genre, and a memory so neither a title
+   nor its first word comes back soon */
+var NAME_A=["Liquid","Neon","Rubber","Static","Velvet","Hollow","Midnight","Chrome","Burnt","Glass","Silver","Feral","Lunar","Molten","Paper","Broken","Electric","Quiet","Wired","Sour",
+  "Acid","Analog","Cold","Distant","Endless","Faded","Golden","Heavy","Infinite","Jagged","Lost","Magnetic","Narrow","Phantom","Radiant","Restless","Secret","Slow","Solar","Strange",
+  "Sunken","Tangled","Twisted","Ultra","Vapor","Violet","Wild","Zero","Crystal","Digital","Hidden","Iron","Low","Northern","Open","Second","Silent","Tidal","Wet","Black"];
+var NAME_B=["Circuit","Tunnel","Signal","Voltage","Ritual","Engine","Mirage","Furnace","Pressure","Machine","Current","Orbit","Reactor","Shadow","Motion","Fever","Pulse","Gravity","Echo",
+  "Arcade","Bloom","Cathedral","Daydream","Drift","Element","Frequency","Garden","Heartbeat","Horizon","Island","Junction","Kingdom","Lantern","Memory","Monsoon","Night","Oasis",
+  "Paradise","Prism","Radio","River","Season","Spiral","Station","System","Theory","Thunder","Transit","Tremor","Vision","Wave","Window","Avenue","Code","Desire","Ghost","Mercury"];
+var NAME_OF=["Light","Sound","Glass","Steel","Time","Water","Dreams","Wires","Silence","Smoke","Stars","Rain","Fire","Dust","Ghosts"];
+var NAME_P1=["Night","Sun","Iron","Neon","Dust","Star","Rain","Fire","Moon","Glass","Sky","Mind","Heat","Acid","Bass"],
+    NAME_P2=["shift","fall","line","break","wire","burn","drift","light","walk","code","fold","rise","lock","wave","loop"];
+var NAME_MIX=["Dub Mix","Acid Rework","Night Version","303 Mix","Extended Mix","Warehouse Edit","Sunrise Mix","Club Mix","Tool Version","Deep Mix"];
+var NAME_G={
+  house:["Sunday","Groove","Basement","Soul","Rooftop","Jack","Disco","Saturday","Sunset","Strut"],
+  techno:["Warehouse","Factory","Sector","Grid","Monolith","Concrete","Unit","Shift","Assembly","Corridor"],
+  hard:["Riot","Hammer","Rage","Steel","Overdrive","Strobe","Pistons","Impact","Fury","Detonator"],
+  electro:["Robot","Laser","Vector","Modem","Satellite","Android","Mainframe","Circuitry","Radar","Data"],
+  trance:["Euphoria","Skyline","Aurora","Eternity","Daybreak","Elysium","Altitude","Ascension","Serenity","Heaven"],
+  psy:["Shaman","Mantra","Fractal","Nebula","Lotus","Portal","Mandala","Spirit","Vortex","Cosmos"],
+  "break":["Rave","Pirate","Breakbeat","Junglist","Hardcore","Rewind","Bassline","Amen","Soundsystem","Massive"],
+  minimal:["Click","Thread","Grain","Dot","Fold","Pixel","Pattern","Fragment","Loop","Particle"],
+  chip:["Pixel","Cartridge","Level","Sprite","Bonus","Joypad","Checkpoint","Overworld","Boss","Continue"],
+  berlin:["Bunker","Spree","U-Bahn","Ostkreuz","Grau","Kalt","Morgen","Nacht","Beton","Hinterhof"],
+  dubstep:["Sub","Bassweight","Undertow","Fault Line","Smog","Rinse","Low End","Badman","Wobble","Riddim"]
+};
+if(!RECENT.name){ RECENT.name=[]; RECENT.w1=[]; }
+function nameOnce(style){
+  var gw=NAME_G[style]||[], P=pick, R=Math.random, A=P(NAME_A), B=R()<.4&&gw.length?P(gw):P(NAME_B), r=R();
+  if(r<.34) return A+" "+B;
+  if(r<.46) return B+" "+P(["9","303","4AM","2000","101","77","Zero","One","XL","3"]);
+  if(r<.56) return "The "+A+" "+B;
+  if(r<.66) return B+" of "+P(NAME_OF);
+  if(r<.78) return P(NAME_P1)+P(NAME_P2);
+  if(r<.88) return B;
+  return A+" "+B+" ("+P(NAME_MIX)+")";
+}
+function trackName(style){
+  for(var i=0;i<12;i++){
+    var n=nameOnce(style), w=n.split(" ")[0];
+    if(i<11&&(seen("name",n)||(w!=="The"&&seen("w1",w)))) continue;
+    remember("name",n,40); remember("w1",w,8); return n;
+  }
+  return n;
+}
 function genSong(cfg){
   var keep=CFG; CFG=cfg;
   try{
@@ -2427,7 +2468,7 @@ function genSong(cfg){
     if(cfg.genre==="hard"){ g.k.drive=Math.max(g.k.drive,.6); g.k.duck=.45; }
     BASE.k.volume=cfg.vol;
     if(cfg.genre!=="chip") g.syn.lead=pickNew("lead",LEAD_BY[cfg.genre]||LEAD_BY.house);
-    var st=songState(g); st.name=trackName(); st.kit=djKit(g.style);
+    var st=songState(g); st.name=trackName(g.style); st.kit=djKit(g.style);
     st.leadBase=g.style==="chip"?72:60;
     st.scDepth=Math.max(.15,Math.min(.7,(SC_DEPTH[g.style]||.35)*(.85+Math.random()*.3)));
     if(g.style==="dubstep"){ st.wdepth=2000+Math.random()*1600; st.wshape=pick(["sine","sine","triangle","square"]); st.wplan={}; } st.chr={}; st.lvs={}; st.vibe=g.vibe;
