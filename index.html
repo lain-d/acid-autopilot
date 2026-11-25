@@ -297,6 +297,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:20px;border-radius:4px;bor
 .g-chords .knob{background:conic-gradient(from 225deg,#ff5a4f calc(var(--v)*270deg),#17181c 0 270deg,transparent 0);filter:none}
 .g-export .deck{flex:1 1 56px;min-height:56px}
 .g-export .reel{width:54px;height:54px}
+.player .disp{margin-top:10px}
 </style>
 </head>
 <body>
@@ -329,6 +330,7 @@ input[type=range]::-moz-range-thumb{width:26px;height:20px;border-radius:4px;bor
       <button id="play" class="hw jelly" type="button" aria-pressed="false">Start set</button>
       <button id="skip" class="hw" type="button" disabled>Next track</button>
     </div>
+    <div class="opt disp"><span class="lbl">Display</span><div class="chips" id="oDisp" role="group" aria-label="Display: spectrum and waveform, spectrum only, or off to save battery"></div></div>
   </section>
   <section class="win mod">
     <div class="bar-t">GENRES</div>
@@ -1310,7 +1312,7 @@ var TWK_BOX={synVol:"kChords",synTone:"kChords",synLen:"kChords",leadVol:"kLead"
 var MST=["drumVol","mLow","mAir","mGlue","mWarm","mWidth","mLoud"];
 var TWK_NAME={cutoff:"Filter",reso:"Reso",env:"Env mod",decay:"Decay",drive:"Drive",delay:"Delay",reverb:"Reverb",synVol:"Level",synTone:"Tone",synLen:"Length",leadVol:"Level",leadTone:"Tone",leadGlide:"Glide",leadFx:"Echo"};
 var SECTION={kick:"intro / outro",full:"groove",fill:"fill",bridge:"bridge","break":"breakdown",build:"build",off:"break"};
-var DJ={genre:"house",genres:["house"],order:"shuffle",tempo:"genre",tvar:0,bpmS:124,glide:2,bpm:124,bpmT:124,len:"med",blend:8,wave:"auto",chords:"auto",lead:"auto",leadAmt:"some",keyMode:"camelot",vol:.7,mins:30,key:.5,
+var DJ={disp:"full",genre:"house",genres:["house"],order:"shuffle",tempo:"genre",tvar:0,bpmS:124,glide:2,bpm:124,bpmT:124,len:"med",blend:8,wave:"auto",chords:"auto",lead:"auto",leadAmt:"some",keyMode:"camelot",vol:.7,mins:30,key:.5,
         tw:{},m:{on:true}};
 TWK.forEach(function(id){ DJ.tw[id]=0; });
 MST.forEach(function(id){ DJ.m[id]=DEF[id]; });
@@ -1321,6 +1323,7 @@ try{
     DJ.genres=[DJ.genre];
     if(Array.isArray(sv.genres)){ var gs=sv.genres.filter(function(g){ return GENRES.hasOwnProperty(g); }); if(gs.length) DJ.genres=gs; }
     if(["shuffle","turn"].indexOf(sv.order)>=0) DJ.order=sv.order;
+    if(["full","spec","off"].indexOf(sv.disp)>=0) DJ.disp=sv.disp;
     if(["slider","genre","rise"].indexOf(sv.tempo)>=0) DJ.tempo=sv.tempo; else if(sv.bpm) DJ.tempo="slider";
     if([0,3,6,10].indexOf(sv.tvar)>=0) DJ.tvar=sv.tvar;
     if(sv.bpm>=100&&sv.bpm<=180) DJ.bpm=DJ.bpmT=DJ.bpmS=Math.round(sv.bpm);
@@ -1341,7 +1344,7 @@ try{
 var saveT=0;
 function saveCfg(){
   clearTimeout(saveT);
-  saveT=setTimeout(function(){ try{ localStorage.setItem(STORE,JSON.stringify({genre:DJ.genre,genres:DJ.genres,order:DJ.order,tempo:DJ.tempo,tvar:DJ.tvar,bpm:DJ.bpmS,len:DJ.len,blend:DJ.blend,wave:DJ.wave,chords:DJ.chords,lead:DJ.lead,leadAmt:DJ.leadAmt,keyMode:DJ.keyMode,vol:DJ.vol,mins:DJ.mins,tw:DJ.tw,m:DJ.m})); }catch(e){} },300);
+  saveT=setTimeout(function(){ try{ localStorage.setItem(STORE,JSON.stringify({disp:DJ.disp,genre:DJ.genre,genres:DJ.genres,order:DJ.order,tempo:DJ.tempo,tvar:DJ.tvar,bpm:DJ.bpmS,len:DJ.len,blend:DJ.blend,wave:DJ.wave,chords:DJ.chords,lead:DJ.lead,leadAmt:DJ.leadAmt,keyMode:DJ.keyMode,vol:DJ.vol,mins:DJ.mins,tw:DJ.tw,m:DJ.m})); }catch(e){} },300);
 }
 /* ---------- which genre and tempo each track gets ---------- */
 function setGenres(c){ var a=(c.genres||[]).filter(function(g){ return GENRES.hasOwnProperty(g); }); return a.length?a:[c.genre||"house"]; }
@@ -1520,7 +1523,9 @@ LEADS.bell=LV([W_+"digital",W_+"digital","sine"],[-4,4,1200],[.5,.5,.18],[-.4,.4
   {n:"Bell",sub:.05,q:.8,env:1.5,dec:.3,att:.002,rel:.3,vib:0,drive:1.1,out:0.517,pluck:.55,sus:.18,fx:{hp:220,pres:1,cho:.4,rate:.4,dep:.003,rev:.6}});
 LEADS.chip.n="8-bit"; LEADS.chip.fx={hp:100,pres:0,cho:0,rate:.5,dep:.001,rev:.12};
 
-function satCurve(k){ var n=1024, c=new Float32Array(n), d=Math.tanh(k); for(var i=0;i<n;i++){ var x=i/(n-1)*2-1; c[i]=Math.tanh(k*x)/d; } return c; }
+var SAT_MEMO={};
+function satCurve(k){ var key=Math.round(k*100); if(SAT_MEMO[key]) return SAT_MEMO[key]; return (SAT_MEMO[key]=satCurveMake(k)); }
+function satCurveMake(k){ var n=1024, c=new Float32Array(n), d=Math.tanh(k); for(var i=0;i<n;i++){ var x=i/(n-1)*2-1; c[i]=Math.tanh(k*x)/d; } return c; }
 function makeChorus(inp,out){
   var c=ctx, dry=c.createGain(), wet=c.createGain(), lfo=c.createOscillator(), lg=c.createGain(), inv=c.createGain();
   var dL=c.createDelay(.05), dR=c.createDelay(.05);
@@ -1683,7 +1688,7 @@ function djFxSet(){
   var Y=L.layer, V=Z.ly;
   if(Y){ for(var yi=0;yi<3;yi++){ djSetWave(V.os[yi],Y.t[yi]); V.os[yi].detune.setValueAtTime(Y.d[yi],t); V.og[yi].gain.setValueAtTime(Y.g[yi],t); if(V.pn[yi]) V.pn[yi].pan.setValueAtTime(Y.p[yi],t); }
     V.f.frequency.setTargetAtTime(Y.lp,t,.05); }
-  Z.sHp.frequency.setTargetAtTime(D.hp,t,.05); Z.sSh.curve=satCurve(D.sat); Z.sPre.gain.value=.6; Z.sPost.gain.value=1;
+  Z.sHp.frequency.setTargetAtTime(D.hp,t,.05); if(Z.sSatK!==Math.round(D.sat*100)){ Z.sSatK=Math.round(D.sat*100); Z.sSh.curve=satCurve(D.sat); } Z.sPre.gain.value=.6; Z.sPost.gain.value=1;
   Z.sPres.gain.setTargetAtTime(D.pres*.4,t,.05); setChorus(Z.sCho,D.rate,D.dep,D.cho,t);
   Z.sRev.gain.setTargetAtTime(D.rev*.75,t,.05); Z.sDly.gain.setTargetAtTime(D.dly*.45,t,.05);
   Z.lHp.frequency.setTargetAtTime(F.hp*((S.leadBase||72)<72?.55:1),t,.05); Z.lPres.gain.setTargetAtTime(F.pres*.4,t,.05); setChorus(Z.lCho,F.rate,F.dep,F.cho,t);
@@ -2326,7 +2331,7 @@ function djWobBar(t,pi,mode,d){
 /* wired once the deck's filter exists: the wobble moves the ladder's cutoff, and the sub is the raw oscillator
    low-passed under 110 Hz, fed in after the filter so it never wobbles away */
 function djDubSetup(){
-  var Z=synBus&&synBus.__fx, c=ctx; if(!Z) return;
+  var Z=synBus&&synBus.__fx, c=ctx; if(!Z||S.style!=="dubstep") return;
   Z.wobG=c.createGain(); Z.wobG.gain.value=0;
   try{ if(lad) Z.wobG.connect(lad.parameters.get("detune")); else { Z.wobG.connect(f1.detune); Z.wobG.connect(f2.detune); } }catch(e){}
   Z.subA=c.createBiquadFilter(); Z.subA.type="lowpass"; Z.subA.frequency.value=110; Z.subA.Q.value=.7;
@@ -2540,7 +2545,19 @@ function applyLive(dk){
   MST.forEach(function(id){ S.k[id]=c.m[id]; }); S.mOn=c.m.on!==false;
   TWK.forEach(function(id){ S.k[id]=clamp01(o.k[id]+(c.tw[id]||0)); });
   S.k.volume=c.vol;
-  makeCurve(); applyParams(); leadSetup(); djFxSet();
+  if(dk.curK!==S.k.drive){ dk.curK=S.k.drive; makeCurve(); }
+  applyParams();
+  var lk=S.syn.lead+"|"+S.k.leadDuty+"|"+S.k.leadVol+"|"+S.k.leadGlide+"|"+S.k.leadFx+"|"+S.k.leadTone;
+  if(dk.leadK!==lk){ dk.leadK=lk; leadSetup(); }
+  djFxSet(); djLeadGate();
+}
+/* a track whose lead never plays has its lead voice and layer unplugged, so the browser stops computing them */
+function djLeadGate(){
+  var Z=synBus&&synBus.__fx; if(!Z) return;
+  var on=S.pats3.some(function(P){ return P.some(function(q){ return q.on; }); });
+  if(Z.leadOn===undefined) Z.leadOn=true;
+  if(on===Z.leadOn) return;
+  try{ if(on){ leadSh.connect(leadV); if(Z.ly) Z.ly.f.connect(Z.ly.g); } else { leadSh.disconnect(leadV); if(Z.ly) Z.ly.f.disconnect(Z.ly.g); } Z.leadOn=on; }catch(e){}
 }
 function makeDeck(sh,st,t0,cfg){
   var dk={S:st,AUT:{},cfg:cfg,sh:sh,eng:null,sch:null,bar:0,step:0,len:st.chain.seq.length,name:st.name,done:false,mode:"kick",fadeEnd:0};
@@ -2784,8 +2801,11 @@ var COL_ACC=cssv.getPropertyValue("--lcd-ink").trim()||"#8ff6ff", COL_DIM=cssv.g
 var fbuf=null, peaks=[], vuLv=-22, COL_BG=cssv.getPropertyValue("--lcd").trim()||"#02141a", lastDraw=0;
 /* the display: a 28-band spectrum analyser with falling peak caps, the waveform drawn over it */
 function fitScope(){ var r=cv.getBoundingClientRect(), dp=Math.min(2,window.devicePixelRatio||1), w=Math.max(200,Math.round(r.width*dp)), h=Math.max(60,Math.round(r.height*dp)); if(cv.width!==w||cv.height!==h){ cv.width=w; cv.height=h; } }
+var dispCleared=false;
 function drawScope(){
   fitScope();
+  if(DJ.disp==="off"){ if(!dispCleared){ g2.clearRect(0,0,cv.width,cv.height); dispCleared=true; } return; }
+  dispCleared=false;
   var w=cv.width,h=cv.height, NB=28, gap=Math.max(2,Math.round(w/200)), bw=(w-gap*(NB-1))/NB, cell=Math.max(3,Math.round(h/26)), i, j;
   g2.clearRect(0,0,w,h);
   var on=live&&running;
@@ -2802,7 +2822,7 @@ function drawScope(){
     if(on){ g2.globalAlpha=1; g2.fillStyle=COL_HOT; g2.fillRect(x,h-peaks[i]*h-2,bw,2); }
   }
   g2.globalAlpha=1; g2.fillStyle=COL_BG; for(j=0;j<=Math.floor(h/cell);j++) g2.fillRect(0,h-j*cell-1,w,2);
-  if(!on) return;
+  if(!on||DJ.disp==="spec") return;
   if(!sbuf) sbuf=new Uint8Array(live.an.fftSize);
   live.an.getByteTimeDomainData(sbuf);
   var ss=0; for(i=0;i<sbuf.length;i++){ var q=(sbuf[i]-128)/128; ss+=q*q; }
@@ -2852,7 +2872,7 @@ function frame(){
     $("clock").textContent=mmss(now-setT0);
     if(bpmDirty){ bpmDirty=false; $("bpm").value=Math.round(DJ.bpmT); $("bpmOut").textContent=Math.round(DJ.bpm); }
   }
-  var tn=performance.now(); if(tn-lastDraw>=32){ lastDraw=tn; drawScope(); }
+  var tn=performance.now(); if(tn-lastDraw>=(DJ.disp==="spec"?48:32)){ lastDraw=tn; drawScope(); }
   if(running) raf=requestAnimationFrame(frame);
 }
 
@@ -2926,6 +2946,7 @@ var paintBpm=function(){ $("bpm").value=Math.round(DJ.bpmT); $("bpmOut").textCon
   });
   paint();
 })();
+chipRow("oDisp",[["full","Spectrum + wave"],["spec","Spectrum"],["off","Off"]],function(){ return DJ.disp; },function(v){ DJ.disp=v; saveCfg(); if(!running) drawScope(); });
 chipRow("oOrder",[["shuffle","Shuffle"],["turn","Take turns"]],function(){ return DJ.order; },function(v){ DJ.order=v; saveCfg(); });
 chipRow("oTempo",[["genre","Each genre's own"],["slider","BPM slider"],["rise","Rising"]],function(){ return DJ.tempo; },function(v){ DJ.tempo=v; tempoTxt(); saveCfg(); });
 chipRow("oTvar",[[0,"None"],[3,"± 3"],[6,"± 6"],[10,"± 10"]],function(){ return DJ.tvar; },function(v){ DJ.tvar=+v; tempoTxt(); saveCfg(); });
