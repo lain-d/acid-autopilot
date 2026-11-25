@@ -1409,6 +1409,9 @@ function djArrange(style,len){
   /* outro, always with a kick so the next track has something to blend against */
   var oc=P(["Ak8-3s","Af4+2y13-16 Ak4-3","Ek4-2y9-12 Ek4-4","Fk4-3 Ak4-4s","Ak4-3 Ek4-4","Af4+1~1-4 Ak4-3","Bk8-2y9-12"]);
   oc.split(" ").forEach(add);
+  /* a dead stop (no drums and no bass) is only ever one bar: anything longer would rely on chords or a lead that may
+     be switched off or skipped, and two silent bars sound like the music has stopped. Longer ones keep a light beat. */
+  out=out.map(function(tk){ var m=/^E([o])(\d+)(.*)$/.exec(tk); return m&&+m[2]>1?"Eb"+m[2]+m[3]:tk; });
   /* stretch or trim to land near the chosen length: half on the first groove, the rest on the first drop */
   var diff=T-n, grow=function(re,by){
     var i=out.findIndex(function(t){ return re.test(t); }); if(i<0||!by) return by;
@@ -2255,7 +2258,7 @@ function psyBar(sc,P,busy,thin){
   for(var b=0;b<4;b++){
     for(var q=1;q<4;q++){
       var st=a[b*4+q];
-      if(P.cell[q]!=="x"||(thin&&q!==2)) continue;
+      if(P.cell[q]!=="x"||(thin&&q!==P.cell.indexOf("x"))) continue;
       var n=b===3?turn[q-1]:P.con[q-1];
       if(busy&&b<3&&Math.random()<.18) n=Math.random()<.5?12:pick(sc);
       st.on=true; st.note=n>=12?n-12:n; st.up=n>=12; st.acc=q===P.accQ||(P.accQ===0&&Math.random()<.4);
