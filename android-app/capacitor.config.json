@@ -1,0 +1,8 @@
+{
+  "appId": "com.laind.acidautopilot",
+  "appName": "Acid Autopilot",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#070a12"
+  }
+}
