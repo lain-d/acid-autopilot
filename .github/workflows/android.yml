@@ -26,6 +26,7 @@ jobs:
           mkdir -p www
           cp ../index.html ../ladder.js ../favicon-32.png ../icon-192.png ../apple-touch-icon.png native.js www/
           sed -i 's#</body>#<script src="native.js"></script></body>#' www/index.html
+          python3 patch-web.py www/index.html
       - name: Install Capacitor
         working-directory: android-app
         run: npm install
